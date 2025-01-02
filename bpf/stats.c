@@ -8,12 +8,12 @@
 #include "stats.h"
 
 // Карта для хранения статистики
-struct bpf_map_def SEC("maps") stats_map = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(struct ip_key_t),
-    .value_size = sizeof(__u64),
-    .max_entries = 1024,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, struct ip_key_t);
+    __type(value, __u64);
+} stats_map SEC(".maps");
 
 // Основная eBPF программа
 SEC("xdp")

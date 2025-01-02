@@ -21,6 +21,11 @@ $(BPF_OBJ): $(BPF_SRC)
 	clang $(CLANG_FLAGS) -c $(BPF_SRC) -o $(BPF_OBJ)
 	@echo "eBPF program compiled: $(BPF_OBJ)"
 
+.PHONY: load_stats
+load_stats:
+	bpftool prog load $(BPF_OBJ) /sys/fs/bpf/stats
+	bpftool prog show pinned /sys/fs/bpf/stats
+
 # Очистка
 .PHONY: clean
 clean:
