@@ -2,56 +2,56 @@ package eBPF
 
 import (
 	"fmt"
-	"log"
-	"os"
-)
-
-import (
 	"github.com/cilium/ebpf"
-	_ "github.com/cilium/ebpf/link"
-	"github.com/vishvananda/netlink"
+	"github.com/cilium/ebpf/link"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-func Loader() {
-	// Укажите путь к вашему скомпилированному eBPF ELF-файлу
-	const bpfProgPath = "build/stats.o"
-	const ifaceName = "eth0" // Укажите интерфейс, к которому хотите привязать программу
+func LoadStats() {
 
-	// Открываем скомпилированный eBPF ELF-файл
-	spec, err := ebpf.LoadCollectionSpec(bpfProgPath)
+	spec, err := ebpf.LoadCollectionSpec("build/stats.o")
 	if err != nil {
-		log.Fatalf("Failed to load eBPF program: %v", err)
+		panic(err)
 	}
 
-	// Создаем коллекцию для карты и программы
 	coll, err := ebpf.NewCollection(spec)
 	if err != nil {
-		log.Fatalf("Failed to create eBPF collection: %v", err)
+		panic(fmt.Sprintf("Failed to create new collection: %v\n", err))
 	}
 	defer coll.Close()
 
-	// Достаём программу XDP
-	prog := coll.Programs["collect_stats"]
+	prog := coll.Programs["xdp_dilih"]
 	if prog == nil {
-		log.Fatalf("Program 'collect_stats' not found in ELF")
+		panic("No program named 'xdp_dilih' found in collection")
 	}
 
-	// Находим интерфейс
-	link, err := netlink.LinkByName(ifaceName)
+	iface := os.Getenv("INTERFACE")
+	if iface == "" {
+		panic("No interface specified. Please set the INTERFACE environment variable to the name of the interface to be use")
+	}
+
+	iface_idx, err := net.InterfaceByName(iface)
 	if err != nil {
-		log.Fatalf("Failed to find network interface: %v", err)
+		panic(fmt.Sprintf("Failed to get interface %s: %v\n", iface, err))
 	}
 
-	// Привязываем программу к интерфейсу с помощью XDP
-	xdpLink, err := link.AttachXDP(link.(*netlink.LinkAttrs), prog.FD(), ebpf.XDP_FLAGS_SKB_MODE)
+	opts := link.XDPOptions{
+		Program:   prog,
+		Interface: iface_idx.Index,
+		// Flags — одно из значений XDPAttachFlags (необязательно).
+	}
+	lnk, err := link.AttachXDP(opts)
 	if err != nil {
-		log.Fatalf("Failed to attach XDP program: %v", err)
+		panic(err)
 	}
-	defer xdpLink.Close()
+	defer lnk.Close()
 
-	fmt.Printf("XDP program attached to %s\n", ifaceName)
+	fmt.Println("Successfully loaded and attached BPF program.")
 
-	// Завершаем программу, но программа XDP останется активной, пока она не будет отвязана.
-	fmt.Println("Press Ctrl+C to exit...")
-	<-make(chan os.Signal, 1)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
 }
