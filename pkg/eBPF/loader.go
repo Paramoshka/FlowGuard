@@ -23,9 +23,9 @@ func LoadStats() {
 	}
 	defer coll.Close()
 
-	prog := coll.Programs["xdp_dilih"]
+	prog := coll.Programs["collect_stats"]
 	if prog == nil {
-		panic("No program named 'xdp_dilih' found in collection")
+		panic("No program named 'collect_stats' found in collection")
 	}
 
 	iface := os.Getenv("INTERFACE")
