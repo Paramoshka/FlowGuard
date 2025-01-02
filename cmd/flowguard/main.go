@@ -1,3 +1,7 @@
 package main
 
-import "github.com/Paramoshka/FlowGuard/pkg/ePBF/loader"
+import "FlowGuard/pkg/eBPF"
+
+func main() {
+	eBPF.LoadStats()
+}
