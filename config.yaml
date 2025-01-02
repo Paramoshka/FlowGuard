@@ -1,0 +1,22 @@
+allow:
+  - 192.168.1.100
+  - 10.0.0.1
+
+deny:
+  - 192.168.1.200
+  - 203.0.113.0
+
+forwarding:
+  - source_ip: 192.168.1.50
+    source_port: "80"
+    destination_ip: 10.0.0.2
+    destination_port: "8080"
+  - source_ip: 0.0.0.0
+    source_port: "443"
+    destination_ip: 192.168.1.100
+    destination_port: "8443"
+
+ddos_protection:
+  max_requests_per_second: 10
+
+iface: "wlp0s20f3"
