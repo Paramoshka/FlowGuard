@@ -3,7 +3,7 @@ EBPF_PROG := stats
 OUTPUT_DIR := build
 BPF_SRC := bpf/$(EBPF_PROG).c
 BPF_OBJ := $(OUTPUT_DIR)/$(EBPF_PROG).o
-CLANG_FLAGS := -O2 -target bpf -g
+CLANG_FLAGS := -O2 -target bpf -g -I/usr/include/x86_64-linux-gnu/ -I/usr/include/
 
 # Проверка на наличие инструментов
 .PHONY: check

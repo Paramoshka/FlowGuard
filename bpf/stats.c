@@ -1,9 +1,11 @@
-#include <linux/bpf.h>
+
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
 #include <linux/tcp.h>
 #include <bpf/bpf_helpers.h>
+#include <netinet/in.h>
+#include "stats.h"
 
 // Карта для хранения статистики
 struct bpf_map_def SEC("maps") stats_map = {
@@ -11,13 +13,6 @@ struct bpf_map_def SEC("maps") stats_map = {
     .key_size = sizeof(struct ip_key_t),
     .value_size = sizeof(__u64),
     .max_entries = 1024,
-};
-
-// Структура ключа
-struct ip_key_t {
-    __u32 src_ip;
-    __u32 dst_ip;
-    __u16 dst_port;
 };
 
 // Основная eBPF программа
