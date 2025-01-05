@@ -11,9 +11,27 @@ type StatsValue struct {
 	Bytes   uint64
 }
 
+// IPPortKey представляет ключ карты (IP + порт)
+type IPPortKey struct {
+	srcIp   uint32
+	dstIp   uint32
+	dstPort uint16
+}
+
 // ShowStats читает и отображает статистику из eBPF карты
 func ShowStats(coll *ebpf.Collection) error {
 	// Открываем eBPF-карту статистики
-	fmt.Println(*coll.Maps["stats_map"])
+	statsMap := *coll.Maps["stats_map"]
+	//var value uint64
+	//var nextKey IPPortKey
+	fmt.Println(statsMap.String())
+	//for {
+	//	// Читаем значение по ключу
+	//	if err := statsMap.Lookup(&nextKey, &value); err != nil {
+	//		return fmt.Errorf("failed to lookup value: %w", err)
+	//	}
+	//
+	//}
+
 	return nil
 }
