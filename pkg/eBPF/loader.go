@@ -6,15 +6,13 @@ import (
 	"github.com/cilium/ebpf/link"
 	"net"
 	"os"
-	"os/signal"
-	"syscall"
 )
 
-func LoadStats() {
+func LoadStats(iface string) (*ebpf.Collection, *ebpf.Program, error) {
 
 	spec, err := ebpf.LoadCollectionSpec("build/stats.o")
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
 	coll, err := ebpf.NewCollection(spec)
@@ -28,7 +26,10 @@ func LoadStats() {
 		panic("No program named 'collect_stats' found in collection")
 	}
 
-	iface := os.Getenv("INTERFACE")
+	if iface == "" {
+		iface = os.Getenv("INTERFACE")
+	}
+
 	if iface == "" {
 		panic("No interface specified. Please set the INTERFACE environment variable to the name of the interface to be use")
 	}
@@ -45,13 +46,17 @@ func LoadStats() {
 	}
 	lnk, err := link.AttachXDP(opts)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	defer lnk.Close()
 
-	fmt.Println("Successfully loaded and attached BPF program.")
+	info, err := prog.Info()
+	if err != nil {
+		return nil, nil, err
+	}
+	id, _ := info.ID()
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
+	fmt.Printf("Successfully loaded program id %d:  and attached BPF program.", id)
+
+	return coll, prog, nil
 }
