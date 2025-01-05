@@ -1,5 +1,5 @@
 # Название eBPF-программы
-EBPF_PROG := stats
+EBPF_PROG := counter
 OUTPUT_DIR := build
 BPF_SRC := bpf/$(EBPF_PROG).c
 BPF_OBJ := $(OUTPUT_DIR)/$(EBPF_PROG).o
