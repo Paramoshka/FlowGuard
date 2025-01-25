@@ -1,24 +1,14 @@
 package main
 
 import (
-	"FlowGuard/pkg/eBPF"
+	"FlowGuard/pkg/config"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
-	// Аргументы командной строки
-	eBPF.ShowPackets()
-	waitForExit()
-
-}
-
-// Ожидаем завершения программы с помощью сигнала
-func waitForExit() {
-	exit := make(chan os.Signal, 1)
-	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
-	<-exit
-	fmt.Println("\nExiting...")
+	conf, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(conf.Forwarding)
 }
