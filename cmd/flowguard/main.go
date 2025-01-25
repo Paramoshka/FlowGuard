@@ -2,7 +2,7 @@ package main
 
 import (
 	"FlowGuard/pkg/config"
-	"fmt"
+	"log"
 )
 
 func main() {
@@ -10,5 +10,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(conf.Forwarding)
+	if conf != nil {
+		log.Printf("Config loaded successfully")
+	}
 }
