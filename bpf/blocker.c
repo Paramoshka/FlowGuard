@@ -5,12 +5,12 @@
 #include <bpf/bpf_helpers.h>
 
 // eBPF map for allow/deny rules
-struct bpf_map_def SEC("maps") ip_rules = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u32), // IPv4 address
-    .value_size = sizeof(__u8), // 1 for allow, 0 for deny
-    .max_entries = 1024,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, __u32); // IPv4 address
+    __type(value, __u8); // 1 for allow, 0 for deny
+} ip_rules SEC(".maps");
 
 SEC("xdp")
 int xdp_filter(struct xdp_md *ctx) {

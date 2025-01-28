@@ -2,12 +2,15 @@
 SRC_DIR := bpf
 BUILD_DIR := build
 
-# Find the path to bpf_helpers.h dynamically
+# Find the path to bpf_helpers.h and asm/types.h dynamically
 LIBBPF_INCLUDE := $(shell find /usr/src/linux-headers-$(shell uname -r) -type d -name "libbpf" | head -n 1)/include
+#KERNEL_INCLUDE := /usr/src/linux-headers-$(shell uname -r)/include
+USER_INCLUDE := /usr/include/$(shell uname -i)-linux-gnu
 
 # Compiler and flags
 CLANG := clang
-CFLAGS := -O2 -g -Wall -target bpf -D__TARGET_ARCH_x86 -I$(LIBBPF_INCLUDE)
+CFLAGS := -v -O2 -g -Wall -target bpf -D__TARGET_ARCH_x86 \
+          -I$(LIBBPF_INCLUDE)  -I$(USER_INCLUDE)
 
 # Source and object files
 SRCS := $(wildcard $(SRC_DIR)/*.c)
