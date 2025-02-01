@@ -4,49 +4,57 @@
 #include <linux/in.h>
 #include <bpf/bpf_helpers.h>
 
-// eBPF map for allow/deny rules
+// Карта для разрешённых IP-адресов
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
-    __type(key, __u32); // IPv4 address
-    __type(value, __u8); // 1 for allow, 0 for deny
-} ip_rules SEC(".maps");
+    __type(key, __u32); // IP-адрес
+    __type(value, __u8); // Флаг (1 — разрешён)
+} allowed_ips SEC(".maps");
+
+// Карта для запрещённых IP-адресов
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, __u32); // IP-адрес
+    __type(value, __u8); // Флаг (1 — запрещён)
+} blocked_ips SEC(".maps");
 
 SEC("xdp")
-int xdp_filter(struct xdp_md *ctx) {
-    void *data = (void *)(long)ctx->data;
+int xdp_filter_ip(struct xdp_md *ctx) {
     void *data_end = (void *)(long)ctx->data_end;
+    void *data = (void *)(long)ctx->data;
 
-    // Parse Ethernet header
     struct ethhdr *eth = data;
-    if ((void *)(eth + 1) > data_end) {
+    if ((void *)eth + sizeof(*eth) > data_end)
+        return XDP_PASS;
+
+    // Проверяем, что это IP-пакет
+    if (eth->h_proto != __constant_htons(ETH_P_IP))
+        return XDP_PASS;
+
+    struct iphdr *ip = data + sizeof(*eth);
+    if ((void *)ip + sizeof(*ip) > data_end)
+        return XDP_PASS;
+
+    __u32 src_ip = ip->saddr;
+
+    // Проверяем, есть ли IP в списке запрещённых
+    __u8 *blocked = bpf_map_lookup_elem(&blocked_ips, &src_ip);
+    if (blocked && *blocked == 1) {
+        // Блокируем пакет
+        return XDP_DROP;
+    }
+
+    // Проверяем, есть ли IP в списке разрешённых
+    __u8 *allowed = bpf_map_lookup_elem(&allowed_ips, &src_ip);
+    if (allowed && *allowed == 1) {
+        // Разрешаем пакет
         return XDP_PASS;
     }
 
-    // Only process IPv4 packets
-    if (eth->h_proto != __constant_htons(ETH_P_IP)) {
-        return XDP_PASS;
-    }
-
-    // Parse IP header
-    struct iphdr *ip = (struct iphdr *)(eth + 1);
-    if ((void *)(ip + 1) > data_end) {
-        return XDP_PASS;
-    }
-
-    // Check if the source IP is in the map
-    __u8 *rule_action = bpf_map_lookup_elem(&ip_rules, &ip->saddr);
-    if (rule_action) {
-        if (*rule_action == 0) {
-            // Deny the packet
-            return XDP_DROP;
-        }
-        // Allow the packet
-        return XDP_PASS;
-    }
-
-    // Default action: pass if no rule is matched
-    return XDP_PASS;
+    // Если IP нет ни в одном списке, блокируем по умолчанию
+    return XDP_DROP;
 }
 
 char _license[] SEC("license") = "GPL";
