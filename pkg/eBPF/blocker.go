@@ -1,127 +1,82 @@
 package eBPF
 
 import (
-	"errors"
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/rlimit"
+	"log"
 	"net"
-	"sync"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/rlimit"
 )
 
-// IPSet represents a thread-safe set of IPs
-type IPSet struct {
-	mu  sync.RWMutex
-	ips map[string]struct{}
+type BlockedIps struct {
 }
 
-// NewIPSet creates a new instance of IPSet
-func NewIPSet() *IPSet {
-	return &IPSet{
-		ips: make(map[string]struct{}),
-	}
-}
-
-// Add adds an IP to the set
-func (s *IPSet) Add(ip string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.ips[ip] = struct{}{}
-}
-
-// Remove removes an IP from the set
-func (s *IPSet) Remove(ip string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.ips, ip)
-}
-
-// Contains checks if an IP is in the set
-func (s *IPSet) Contains(ip string) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	_, exists := s.ips[ip]
-	return exists
-}
-
-// AllowDenyManager manages allow and deny lists for eBPF
-type AllowDenyManager struct {
-	AllowList *IPSet
-	DenyList  *IPSet
-	Map       *ebpf.Map
-}
-
-// NewAllowDenyManager creates a new AllowDenyManager
-func NewAllowDenyManager(mapName string) (*AllowDenyManager, error) {
+func (bl *BlockedIps) init() {
+	// Убедимся, что у нас достаточно прав для работы с eBPF
 	if err := rlimit.RemoveMemlock(); err != nil {
-		return nil, err
+		log.Fatalf("Failed to remove memlock limit: %v", err)
 	}
 
-	m := ebpf.MapSpec{
-		Type:       ebpf.Hash,
-		KeySize:    16, // Size for IPv6 address, also supports IPv4
-		ValueSize:  1,
-		MaxEntries: 1024,
-	}
-
-	bpfMap, err := ebpf.NewMap(&m)
+	// Загружаем eBPF-программу
+	spec, err := loadBpf()
 	if err != nil {
-		return nil, err
+		log.Fatalf("Failed to load eBPF spec: %v", err)
 	}
 
-	return &AllowDenyManager{
-		AllowList: NewIPSet(),
-		DenyList:  NewIPSet(),
-		Map:       bpfMap,
-	}, nil
+	// Загружаем программу в ядро
+	objs := bpfObjects{}
+	if err := spec.LoadAndAssign(&objs, nil); err != nil {
+		log.Fatalf("Failed to load eBPF program: %v", err)
+	}
+	defer objs.Close()
+
+	// Прикрепляем программу к сетевому интерфейсу (например, eth0)
+	iface := "eth0" // Укажите ваш интерфейс
+	link, err := link.AttachXDP(link.XDPOptions{
+		Program:   objs.XdpFilterIp,
+		Interface: iface,
+	})
+	if err != nil {
+		log.Fatalf("Failed to attach XDP program: %v", err)
+	}
+	defer link.Close()
+
+	log.Printf("eBPF program attached to %s\n", iface)
+
+	// Добавляем IP-адреса в карты
+	addIPToMap(objs.AllowedIps, "192.168.1.100") // Разрешённый IP
+	addIPToMap(objs.BlockedIps, "10.0.0.1")      // Запрещённый IP
+
+	log.Println("IP addresses added to maps")
+
+	// Ожидаем сигнала для завершения
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	<-sig
+
+	log.Println("Detaching eBPF program and exiting...")
 }
 
-// IsAllowed checks if an IP is allowed based on the allow and deny lists
-func (m *AllowDenyManager) IsAllowed(ip string) (bool, error) {
-	if m.DenyList.Contains(ip) {
-		return false, nil
+// addIPToMap добавляет IP-адрес в карту
+func addIPToMap(m *ebpf.Map, ipStr string) {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		log.Fatalf("Invalid IP address: %s", ipStr)
 	}
-	if m.AllowList.Contains(ip) {
-		return true, nil
-	}
-	return false, errors.New("IP is not explicitly allowed or denied")
-}
 
-// AddToAllowList adds an IP to the allow list and updates the eBPF map
-func (m *AllowDenyManager) AddToAllowList(ip string) error {
-	parsedIP := net.ParseIP(ip)
-	if parsedIP == nil {
-		return errors.New("invalid IP address")
+	ipv4 := ip.To4()
+	if ipv4 == nil {
+		log.Fatalf("Only IPv4 addresses are supported: %s", ipStr)
 	}
-	m.AllowList.Add(ip)
-	return m.Map.Put(parsedIP.To16(), []byte{1})
-}
 
-// RemoveFromAllowList removes an IP from the allow list and updates the eBPF map
-func (m *AllowDenyManager) RemoveFromAllowList(ip string) error {
-	parsedIP := net.ParseIP(ip)
-	if parsedIP == nil {
-		return errors.New("invalid IP address")
-	}
-	m.AllowList.Remove(ip)
-	return m.Map.Delete(parsedIP.To16())
-}
+	key := uint32(ipv4[0])<<24 | uint32(ipv4[1])<<16 | uint32(ipv4[2])<<8 | uint32(ipv4[3])
+	value := uint8(1) // Флаг (1 — разрешён/запрещён)
 
-// AddToDenyList adds an IP to the deny list and updates the eBPF map
-func (m *AllowDenyManager) AddToDenyList(ip string) error {
-	parsedIP := net.ParseIP(ip)
-	if parsedIP == nil {
-		return errors.New("invalid IP address")
+	if err := m.Put(key, value); err != nil {
+		log.Fatalf("Failed to update map: %v", err)
 	}
-	m.DenyList.Add(ip)
-	return m.Map.Put(parsedIP.To16(), []byte{0})
-}
-
-// RemoveFromDenyList removes an IP from the deny list and updates the eBPF map
-func (m *AllowDenyManager) RemoveFromDenyList(ip string) error {
-	parsedIP := net.ParseIP(ip)
-	if parsedIP == nil {
-		return errors.New("invalid IP address")
-	}
-	m.DenyList.Remove(ip)
-	return m.Map.Delete(parsedIP.To16())
 }
