@@ -43,6 +43,7 @@ int xdp_filter_ip(struct xdp_md *ctx) {
     __u8 *blocked = bpf_map_lookup_elem(&blocked_ips, &src_ip);
     if (blocked && *blocked == 1) {
         // Блокируем пакет
+        bpf_printk("Blocked IP: %s", src_ip);
         return XDP_DROP;
     }
 

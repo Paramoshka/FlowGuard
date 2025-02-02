@@ -18,7 +18,7 @@ type BlockedIps struct {
 	cfg      *config.Config
 }
 
-func new(cfg *config.Config) BlockedIps {
+func New(cfg *config.Config) BlockedIps, error {
 	// // Remove resource limits for kernels <5.11.
 	if err := rlimit.RemoveMemlock(); err != nil {
 		log.Fatalf("Failed to remove memlock limit: %v", err)

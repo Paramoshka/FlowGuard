@@ -2,6 +2,7 @@ package main
 
 import (
 	"FlowGuard/pkg/config"
+	"FlowGuard/pkg/eBPF"
 	"log"
 )
 
@@ -13,5 +14,8 @@ func main() {
 	if conf != nil {
 		log.Printf("Config loaded successfully")
 	}
+
+	blocker := eBPF.New(conf)
+	blocker.ServeTraffic()
 
 }
