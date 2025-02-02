@@ -13,4 +13,5 @@ func main() {
 	if conf != nil {
 		log.Printf("Config loaded successfully")
 	}
+
 }

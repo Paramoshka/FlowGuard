@@ -18,3 +18,5 @@ forwarding:
 
 ddos_protection:
   max_requests_per_second: 10
+
+iface: "eno1"

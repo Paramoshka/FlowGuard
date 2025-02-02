@@ -1,8 +1,9 @@
 package config
 
 import (
-	"gopkg.in/yaml.v3"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -10,6 +11,7 @@ type Config struct {
 	Deny           []string         `yaml:"deny"`
 	Forwarding     []ForwardingRule `yaml:"forwarding"`
 	DDoSProtection DDoSConfig       `yaml:"ddos_protection"`
+	Interface      string           `yaml:"iface"`
 }
 
 type ForwardingRule struct {
