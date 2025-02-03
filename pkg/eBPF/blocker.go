@@ -15,10 +15,12 @@ import (
 )
 
 type BlockedIps struct {
-	coll     *ebpf.Collection
-	iface    link.Link
-	cfg      *config.Config
-	stopChan chan os.Signal
+	coll       *ebpf.Collection
+	iface      link.Link
+	cfg        *config.Config
+	stopChan   chan os.Signal
+	allowedIPs *ebpf.Map
+	blockedIPs *ebpf.Map
 }
 
 func New(cfg *config.Config) (*BlockedIps, error) {
@@ -38,6 +40,16 @@ func New(cfg *config.Config) (*BlockedIps, error) {
 	prog := collections.Programs["xdp_filter_ip"]
 	if prog == nil {
 		log.Fatalf("failed to find eBPF program")
+	}
+
+	allowedIPs := collections.Maps["allowed_ips"]
+	if allowedIPs == nil {
+		return nil, fmt.Errorf("eBPF map 'allowed_ips' not found")
+	}
+
+	blockedIPs := collections.Maps["blocked_ips"]
+	if blockedIPs == nil {
+		return nil, fmt.Errorf("eBPF map 'blocked_ips' not found")
 	}
 
 	// get index interface by name
@@ -62,10 +74,12 @@ func New(cfg *config.Config) (*BlockedIps, error) {
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
 
 	return &BlockedIps{
-		coll:     collections,
-		cfg:      cfg,
-		iface:    link,
-		stopChan: stopChan,
+		coll:       collections,
+		cfg:        cfg,
+		iface:      link,
+		stopChan:   stopChan,
+		allowedIPs: allowedIPs,
+		blockedIPs: blockedIPs,
 	}, nil
 }
 
