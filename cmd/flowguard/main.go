@@ -15,7 +15,12 @@ func main() {
 		log.Printf("Config loaded successfully")
 	}
 
-	blocker := eBPF.New(conf)
+	blocker, err := eBPF.New(conf)
+	if err != nil {
+		log.Fatalf("Failed create blocker eBPF programm: %v", err)
+	}
+	defer blocker.Close()
+
 	blocker.ServeTraffic()
 
 }

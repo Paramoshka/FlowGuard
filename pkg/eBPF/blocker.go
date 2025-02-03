@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -12,13 +15,13 @@ import (
 )
 
 type BlockedIps struct {
-	prog     *ebpf.Program
-	link     *link.Link
-	linkOpts *link.XDPOptions
+	coll     *ebpf.Collection
+	iface    link.Link
 	cfg      *config.Config
+	stopChan chan os.Signal
 }
 
-func New(cfg *config.Config) BlockedIps, error {
+func New(cfg *config.Config) (*BlockedIps, error) {
 	// // Remove resource limits for kernels <5.11.
 	if err := rlimit.RemoveMemlock(); err != nil {
 		log.Fatalf("Failed to remove memlock limit: %v", err)
@@ -49,24 +52,44 @@ func New(cfg *config.Config) BlockedIps, error {
 		Interface: iface_idx.Index,
 	}
 
-	return BlockedIps{
-		prog:     prog,
-		linkOpts: &opts,
-		cfg:      cfg,
+	//attach to interface
+	link, err := link.AttachXDP(opts)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to attach to interface %s: %v\n", cfg.Interface, err))
 	}
+
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
+
+	return &BlockedIps{
+		coll:     collections,
+		cfg:      cfg,
+		iface:    link,
+		stopChan: stopChan,
+	}, nil
 }
 
 func (bl *BlockedIps) ServeTraffic() error {
-	link, err := link.AttachXDP(*bl.linkOpts)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to attach to interface %s: %v\n", bl.cfg.Interface, err))
-	}
+	log.Println("Serving traffic...")
 
-	defer link.Close()
+	// todo
+
+	// wait OS signal
+	<-bl.stopChan
+	log.Println("Stopping ServeTraffic...")
 	return nil
 }
 
-func (bl *BlockedIps) Close() error {
-	bl.prog.Close()
-	return nil
+func (bl *BlockedIps) Close() {
+	log.Println("Closing eBPF program...")
+
+	if bl.iface != nil {
+		bl.iface.Close()
+	}
+
+	if bl.coll != nil {
+		bl.coll.Close()
+	}
+
+	log.Println("eBPF program closed.")
 }
