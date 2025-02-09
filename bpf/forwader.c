@@ -20,11 +20,6 @@ struct {
     __type(value, struct forwarding_rule);
 } forwarding_map SEC(".maps");
 
-// enum tcx_action_base {
-//     TC_ACT_UNSPEC = -1,
-//     TC_ACT_OK = 0,
-//     TC_ACT_RECLASSIFY = 1,
-// };
 
 SEC("tcx/egress")  // Новый формат секции
 int forward_traffic(struct __sk_buff *skb) {
