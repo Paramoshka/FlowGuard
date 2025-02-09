@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "if_ether.h": "c",
+        "bpf.h": "c",
+        "bpf_helpers.h": "c"
+    }
+}
