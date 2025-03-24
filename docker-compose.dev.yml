@@ -1,0 +1,13 @@
+services:
+  flowguard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flowguard
+    network_mode: host  # Используем сетевой режим хоста
+    cap_add:
+      - NET_ADMIN  # Добавляем возможность управления сетью (например, изменение интерфейсов)
+      - NET_RAW    # Добавляем возможность использовать сырые сокеты (например, для работы с низкоуровневыми сетевыми пакетами)
+    cap_drop:
+      - ALL         # Убираем все другие возможности, которые не указаны в `cap_add`
+    environment: {}
