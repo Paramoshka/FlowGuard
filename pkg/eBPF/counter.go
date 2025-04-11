@@ -13,7 +13,7 @@ import (
 
 func ShowPackets() {
 
-	spec, err := ebpf.LoadCollectionSpec("build/counter.o")
+	spec, err := ebpf.LoadCollectionSpec("/app/counter.o")
 	if err != nil {
 		panic(err)
 	}

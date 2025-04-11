@@ -30,7 +30,7 @@ func New(cfg *config.Config) (*BlockedIps, error) {
 	}
 
 	// Create collections
-	collections, err := ebpf.LoadCollection("./build/blocker.o")
+	collections, err := ebpf.LoadCollection("/app/blocker.o")
 	if err != nil {
 		log.Fatalf("failed to load eBPF program: %v", err)
 	}

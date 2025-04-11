@@ -9,7 +9,7 @@ import (
 
 func main() {
 	// Загружаем конфигурацию
-	conf, err := config.LoadConfig("config.yaml")
+	conf, err := config.LoadConfig("/app/config.yaml")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}

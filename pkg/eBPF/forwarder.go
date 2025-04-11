@@ -33,7 +33,7 @@ func NewForwarder(cfg *config.Config) (*Forwarder, error) {
 	}
 
 	// Загружаем eBPF-объект
-	collSpec, err := ebpf.LoadCollectionSpec("./build/forwader.o")
+	collSpec, err := ebpf.LoadCollectionSpec("/app/forwader.o")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load eBPF collection spec: %v", err)
 	}
