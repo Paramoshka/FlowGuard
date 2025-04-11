@@ -11,6 +11,7 @@ services:
     cap_drop:
       - ALL         # Убираем все другие возможности, которые не указаны в `cap_add`
     environment: {}
+    privileged: true
     ulimits:
       memlock:
         soft: -1
